@@ -665,7 +665,7 @@ function renderReceiptPreview(id) {
             '<div class="receiptHeader">' +
 
                 '<h2>' +
-                    'अंजुमन गोसिया तालीमुल कुरान' +
+                    'अंजुमन गौसिया तालीमुल कुराण' +
                 '</h2>' +
 
                 '<div>' +
@@ -1252,7 +1252,7 @@ async function shareReceiptPDF(id) {
                     "Chanda Receipt",
 
                 text:
-                    "अंजुमन गोसिया तालीमुल कुरान\n" +
+                    "अंजुमन गौसिया तालीमुल कुराण\n" +
                     "Receipt No.: " +
                     receipt.receiptNo,
 
