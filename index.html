@@ -1,0 +1,712 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#0f766e">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+
+<meta charset="UTF-8">
+
+<meta
+    name="viewport"
+    content="width=device-width, initial-scale=1.0"
+>
+
+<title>Anjuman Gosiya Taalimul Quran</title>
+
+<style>
+
+* {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    font-family: Arial, sans-serif;
+    background: #f5f5f5;
+    color: #222;
+}
+
+header {
+    background: #075e54;
+    color: white;
+    text-align: center;
+    padding: 15px 10px;
+}
+
+header h1 {
+    margin: 0;
+    font-size: 22px;
+}
+
+header p {
+    margin: 5px 0;
+    font-size: 14px;
+}
+
+nav {
+    display: flex;
+    background: white;
+    border-bottom: 1px solid #ddd;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+}
+
+nav button {
+    flex: 1;
+    border: none;
+    background: white;
+    padding: 12px 5px;
+    font-size: 13px;
+}
+
+nav button.active {
+    background: #075e54;
+    color: white;
+}
+
+.page {
+    display: none;
+    padding: 15px;
+}
+
+.page.active {
+    display: block;
+}
+
+.card {
+    background: white;
+    border-radius: 12px;
+    padding: 15px;
+    margin-bottom: 15px;
+    box-shadow: 0 2px 8px rgba(0,0,0,.08);
+}
+
+button {
+    border: none;
+    border-radius: 8px;
+    padding: 11px 14px;
+    margin: 5px 0;
+    background: #075e54;
+    color: white;
+    cursor: pointer;
+    font-size: 14px;
+}
+
+button.secondary {
+    background: #777;
+}
+
+button.danger {
+    background: #c62828;
+}
+
+button.whatsapp {
+    background: #25d366;
+}
+
+button.gold {
+    background: #b08a32;
+}
+
+input,
+select {
+    width: 100%;
+    padding: 11px;
+    margin: 6px 0 12px;
+    border: 1px solid #ccc;
+    border-radius: 7px;
+    font-size: 15px;
+}
+
+label {
+    font-weight: bold;
+    font-size: 14px;
+}
+
+.stat {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+}
+
+.statBox {
+    background: #f1f8f6;
+    padding: 15px;
+    border-radius: 10px;
+    text-align: center;
+}
+
+.statBox strong {
+    display: block;
+    font-size: 22px;
+    color: #075e54;
+}
+
+.memberRow,
+.receiptRow {
+    border-bottom: 1px solid #ddd;
+    padding: 12px 0;
+}
+
+.small {
+    font-size: 12px;
+    color: #666;
+}
+
+.modal {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,.55);
+    z-index: 100;
+    align-items: center;
+    justify-content: center;
+    padding: 15px;
+}
+
+.modalBox {
+    width: 100%;
+    max-width: 500px;
+    max-height: 90vh;
+    overflow-y: auto;
+    background: white;
+    border-radius: 12px;
+    padding: 20px;
+}
+
+.receipt {
+    background: #fffdf5;
+    border: 5px double #075e54;
+    padding: 18px;
+    margin-top: 15px;
+    border-radius: 8px;
+}
+
+.arabic {
+    text-align: center;
+    font-size: 22px;
+    margin-bottom: 8px;
+}
+
+.receiptHeader {
+    text-align: center;
+    border-bottom: 2px solid #075e54;
+    padding-bottom: 10px;
+}
+
+.receiptHeader h2 {
+    margin: 5px 0;
+}
+
+.receiptTitle {
+    text-align: center;
+    font-size: 24px;
+    font-weight: bold;
+    margin: 15px 0;
+}
+
+.receiptTable {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.receiptTable td {
+    border: 1px solid #aaa;
+    padding: 9px;
+}
+
+.receiptTable td:first-child {
+    font-weight: bold;
+    width: 42%;
+}
+
+.amountBox {
+    text-align: center;
+    font-size: 24px;
+    font-weight: bold;
+    margin: 15px 0;
+    padding: 12px;
+    border: 2px solid #b08a32;
+}
+
+.signature {
+    text-align: right;
+    margin-top: 35px;
+}
+
+.signatureName {
+    font-weight: bold;
+    font-size: 16px;
+}
+
+.actionButtons {
+    margin-top: 15px;
+}
+
+.reportTable {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+}
+
+.reportTable th,
+.reportTable td {
+    border: 1px solid #ccc;
+    padding: 7px;
+    text-align: left;
+}
+
+.reportTable th {
+    background: #075e54;
+    color: white;
+}
+
+.totalBox {
+    font-size: 18px;
+    font-weight: bold;
+    margin: 10px 0;
+}
+
+</style>
+
+</head>
+
+<body>
+
+<header>
+
+    <h1>अंजुमन गोसिया तालीमुल कुरान</h1>
+
+    <p>
+        PTR No.: 10418-95 (पुणे)
+    </p>
+
+    <p>
+        42, कोरेगांव पार्क, गाडगे महाराज वस्ती, पुणे – 1
+    </p>
+
+</header>
+
+
+<nav>
+
+    <button id="navHome" class="active">
+        🏠 Home
+    </button>
+
+    <button id="navReceipt">
+        🧾 Receipt
+    </button>
+
+    <button id="navMembers">
+        👥 Members
+    </button>
+
+    <button id="navSettings">
+        ⚙️ Settings
+    </button>
+
+</nav>
+
+
+<!-- =========================
+     HOME
+========================= -->
+
+<section id="homePage" class="page active">
+
+    <div class="card">
+
+        <h2>Dashboard</h2>
+
+        <div class="stat">
+
+            <div class="statBox">
+                <span>Total Members</span>
+                <strong id="totalMembers">0</strong>
+            </div>
+
+            <div class="statBox">
+                <span>Total Receipts</span>
+                <strong id="totalReceipts">0</strong>
+            </div>
+
+            <div class="statBox">
+                <span>Total Collection</span>
+                <strong id="totalCollection">₹0</strong>
+            </div>
+
+            <div class="statBox">
+                <span>This Month</span>
+                <strong id="thisMonthCollection">₹0</strong>
+            </div>
+
+        </div>
+
+    </div>
+
+
+    <div class="card">
+
+        <button id="homeAddMember">
+            👤 Add Member
+        </button>
+
+        <button id="homeNewReceipt">
+            🧾 New Receipt
+        </button>
+
+        <button id="homeDuplicateReceipt">
+            📋 Duplicate Receipt
+        </button>
+
+        <button id="homeMonthly">
+            📊 Monthly / Yearly Report
+        </button>
+
+    </div>
+
+</section>
+
+
+<!-- =========================
+     RECEIPT
+========================= -->
+
+<section id="receiptPage" class="page">
+
+    <div class="card">
+
+        <h2>🧾 Receipt</h2>
+
+        <label>Receipt No.</label>
+
+        <input
+            type="text"
+            id="receiptNo"
+        >
+
+
+        <label>Date</label>
+
+        <input
+            type="date"
+            id="receiptDate"
+        >
+
+
+        <label>Member Name</label>
+
+        <select id="receiptMember">
+
+            <option value="">
+                Select Member
+            </option>
+
+        </select>
+
+
+        <button
+            id="receiptAddMember"
+            class="secondary"
+        >
+            + Add Member
+        </button>
+
+
+        <label>Amount</label>
+
+        <input
+            type="number"
+            id="receiptAmount"
+            min="0"
+            step="0.01"
+        >
+
+
+        <label>For Month</label>
+
+        <input
+            type="month"
+            id="receiptMonth"
+        >
+
+
+        <label>Payment Mode</label>
+
+        <select id="receiptMode">
+
+            <option value="Cash">
+                Cash
+            </option>
+
+            <option value="UPI">
+                UPI
+            </option>
+
+            <option value="Bank Transfer">
+                Bank Transfer
+            </option>
+
+            <option value="Cheque">
+                Cheque
+            </option>
+
+        </select>
+
+
+        <button id="saveReceipt">
+            💾 Save Receipt
+        </button>
+
+    </div>
+
+
+    <div id="receiptPreview"></div>
+
+</section>
+
+
+<!-- =========================
+     MEMBERS
+========================= -->
+
+<section id="membersPage" class="page">
+
+    <div class="card">
+
+        <h2>👥 Members</h2>
+
+        <button id="membersAdd">
+            + Add Member
+        </button>
+
+        <div id="membersList"></div>
+
+    </div>
+
+</section>
+
+
+<!-- =========================
+     MONTHLY / YEARLY
+========================= -->
+
+<section id="monthlyPage" class="page">
+
+    <div class="card">
+
+        <h2>📊 Monthly / Yearly Report</h2>
+
+        <label>Select Month</label>
+
+        <input
+            type="month"
+            id="monthlyMonth"
+        >
+
+        <button id="showReport">
+            Show Monthly Report
+        </button>
+
+        <hr>
+
+        <label>Year</label>
+
+        <input
+            type="number"
+            id="reportYear"
+            placeholder="2026"
+        >
+
+        <button id="monthlyExcel">
+            📥 Monthly Excel
+        </button>
+
+        <button id="yearlyExcel">
+            📥 Yearly Excel
+        </button>
+
+    </div>
+
+    <div
+        id="monthlyReport"
+        class="card"
+    ></div>
+
+</section>
+
+
+<!-- =========================
+     SETTINGS
+========================= -->
+
+<section id="settingsPage" class="page">
+
+    <div class="card">
+
+        <h2>⚙️ Settings</h2>
+
+        <button id="backupButton">
+            💾 Backup Data
+        </button>
+
+        <button id="restoreButton">
+            ♻️ Restore Data
+        </button>
+
+        <input
+            type="file"
+            id="restoreFile"
+            accept=".json"
+            style="display:none"
+        >
+
+        <button
+            id="clearData"
+            class="danger"
+        >
+            🗑️ Clear All Data
+        </button>
+
+    </div>
+
+</section>
+
+
+<!-- =========================
+     MEMBER MODAL
+========================= -->
+
+<div
+    id="memberModal"
+    class="modal"
+>
+
+    <div class="modalBox">
+
+        <h2>👤 Add Member</h2>
+
+        <label>
+            Member Name
+        </label>
+
+        <input
+            type="text"
+            id="memberName"
+            placeholder="Enter member name"
+        >
+
+
+        <label>
+            Mobile Number
+        </label>
+
+        <input
+            type="tel"
+            id="memberMobile"
+            placeholder="10 digit mobile number"
+            maxlength="10"
+        >
+
+
+        <button id="saveMember">
+            Save Member
+        </button>
+
+        <button
+            id="closeMember"
+            class="secondary"
+        >
+            Close
+        </button>
+
+    </div>
+
+</div>
+
+
+<!-- =========================
+     DUPLICATE RECEIPT MODAL
+========================= -->
+
+<div
+    id="duplicateModal"
+    class="modal"
+>
+
+    <div class="modalBox">
+
+        <h2>📋 Duplicate Receipt</h2>
+
+        <p class="small">
+            Member aur month select karke existing receipt choose karein.
+            Duplicate mein saari details exactly same rahengi.
+        </p>
+
+
+        <label>
+            Member Name
+        </label>
+
+        <select id="duplicateMember">
+
+            <option value="">
+                Select Member
+            </option>
+
+        </select>
+
+
+        <label>
+            Month
+        </label>
+
+        <input
+            type="month"
+            id="duplicateMonth"
+        >
+
+
+        <div
+            id="duplicateReceiptList"
+        ></div>
+
+
+        <button
+            id="closeDuplicate"
+            class="secondary"
+        >
+            Close
+        </button>
+
+    </div>
+
+</div>
+
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
+<script src="app.js"></script>
+
+  <script>
+if ("serviceWorker" in navigator) {
+    navigator.serviceWorker.register("sw.js")
+        .then(function () {
+            console.log("Service Worker Registered");
+        })
+        .catch(function (error) {
+            console.log("Service Worker Error:", error);
+        });
+}
+  </script>
+
+</body>
+</html>
