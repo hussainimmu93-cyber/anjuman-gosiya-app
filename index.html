@@ -363,6 +363,10 @@ label {
             📋 Duplicate Receipt
         </button>
 
+      <button id="homeViewReceipt">
+    👁️ View Receipt
+      </button>
+
         <button id="homeMonthly">
             📊 Monthly / Yearly Report
         </button>
@@ -501,6 +505,8 @@ label {
 
         <h2>📊 Monthly / Yearly Report</h2>
 
+        <h3>📄 PDF Report</h3>
+
         <label>Select Month</label>
 
         <input
@@ -508,8 +514,46 @@ label {
             id="monthlyMonth"
         >
 
-        <button id="showReport">
-            Show Monthly Report
+        <button id="monthlyPDFMonthWise">
+            📄 Month-wise PDF
+        </button>
+
+        <button id="monthlyPDFMemberWise">
+            📄 Member-wise PDF
+        </button>
+
+        <hr>
+
+        <h3>👤 Single Member Report</h3>
+
+        <label>Select Member</label>
+
+        <select id="singleMemberSelect">
+
+            <option value="">
+                -- Select Member --
+            </option>
+
+        </select>
+
+        <button id="singleMemberPDF">
+            📄 Single Member PDF
+        </button>
+
+        <button id="singleMemberExcel">
+            📊 Single Member Excel
+        </button>
+
+        <hr>
+
+        <h3>📊 Excel Report</h3>
+
+        <button id="monthlyExcelMonthWise">
+            📊 Month-wise Excel
+        </button>
+
+        <button id="monthlyExcelMemberWise">
+            📊 Member-wise Excel
         </button>
 
         <hr>
@@ -522,12 +566,8 @@ label {
             placeholder="2026"
         >
 
-        <button id="monthlyExcel">
-            📥 Monthly Excel
-        </button>
-
         <button id="yearlyExcel">
-            📥 Yearly Excel
+            📊 Yearly Excel
         </button>
 
     </div>
