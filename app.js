@@ -4370,3 +4370,496 @@ document.addEventListener(
 
     }
 );
+
+/* =========================================================
+   YEARLY DASHBOARD + YEARLY PDF
+   SAFE ADD-ON
+   ========================================================= */
+
+(function () {
+
+    "use strict";
+
+    var YD = {
+        modalId: "anjumanYearlyDashboardModal",
+        cardId: "anjumanYearlyDashboardCard"
+    };
+
+    function yearlyYear() {
+        return new Date().getFullYear();
+    }
+
+    function yearlyData(year) {
+
+        var months = getYearMonths(year);
+        var data = [];
+
+        months.forEach(function (month) {
+
+            var list = receipts.filter(function (r) {
+                return String(r.month || "") === String(month);
+            });
+
+            var amount = 0;
+
+            list.forEach(function (r) {
+                amount += Number(r.amount || 0);
+            });
+
+            var paid = 0;
+
+            members.forEach(function (m) {
+                if (getReceiptForMemberMonth(m.id, month)) {
+                    paid++;
+                }
+            });
+
+            data.push({
+                month: month,
+                receipts: list.length,
+                amount: amount,
+                paid: paid,
+                unpaid: Math.max(
+                    members.length - paid,
+                    0
+                )
+            });
+        });
+
+        return data;
+    }
+
+    function yearlyOpen() {
+
+        var old = document.getElementById(YD.modalId);
+
+        if (old) {
+            old.remove();
+        }
+
+        var year = yearlyYear();
+        var data = yearlyData(year);
+
+        var total = 0;
+        var totalReceipts = 0;
+
+        data.forEach(function (x) {
+            total += x.amount;
+            totalReceipts += x.receipts;
+        });
+
+        var html =
+            '<div id="' + YD.modalId + '" ' +
+            'style="position:fixed;inset:0;background:rgba(0,0,0,.65);' +
+            'z-index:99999;overflow:auto;padding:15px;">' +
+
+            '<div style="max-width:900px;margin:20px auto;background:#fff;' +
+            'border-radius:15px;padding:18px;font-family:Arial;">' +
+
+            '<div style="display:flex;justify-content:space-between;' +
+            'align-items:center;">' +
+
+            '<h2 style="margin:0;">📊 Yearly Dashboard ' +
+            year + '</h2>' +
+
+            '<button id="yearlyCloseBtn" ' +
+'style="padding:9px 16px;border:0;border-radius:8px;font-size:16px;">' +
+'⬅️ Back' +
+'</button>' +
+            '</div>' +
+
+            '<div style="display:grid;grid-template-columns:' +
+            'repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-top:15px;">' +
+
+            yearlyCard("👥 Members", members.length) +
+
+            yearlyCard("🧾 Receipts", totalReceipts) +
+
+            yearlyCard("💰 Collection", money(total)) +
+
+            '</div>' +
+
+            '<h3>Month-wise Collection</h3>' +
+
+            '<div style="overflow:auto;">' +
+
+            '<table style="width:100%;border-collapse:collapse;">' +
+
+            '<tr style="background:#eee;">' +
+
+            '<th style="padding:8px;">Month</th>' +
+            '<th style="padding:8px;">Receipts</th>' +
+            '<th style="padding:8px;">Paid</th>' +
+            '<th style="padding:8px;">Unpaid</th>' +
+            '<th style="padding:8px;">Collection</th>' +
+
+            '</tr>';
+
+        data.forEach(function (x) {
+
+            html +=
+                '<tr>' +
+
+                '<td style="padding:7px;border-bottom:1px solid #ddd;">' +
+                escapeHTML(formatMonth(x.month)) +
+                '</td>' +
+
+                '<td style="padding:7px;text-align:center;">' +
+                x.receipts +
+                '</td>' +
+
+                '<td style="padding:7px;text-align:center;">' +
+                x.paid +
+                '</td>' +
+
+                '<td style="padding:7px;text-align:center;">' +
+                x.unpaid +
+                '</td>' +
+
+                '<td style="padding:7px;text-align:right;">' +
+                money(x.amount) +
+                '</td>' +
+
+                '</tr>';
+        });
+
+        html +=
+            '</table></div>' +
+
+            '<div style="display:flex;gap:8px;flex-wrap:wrap;' +
+            'margin-top:18px;">' +
+
+            '<button id="yearlyPdfBtn" ' +
+            'style="padding:11px 15px;border:0;border-radius:8px;">' +
+            '📄 Save Yearly PDF</button>' +
+
+            '<button id="yearlyShareBtn" ' +
+            'style="padding:11px 15px;border:0;border-radius:8px;">' +
+            '📤 Share Yearly PDF</button>' +
+
+            '<button id="yearlyExcelBtn" ' +
+            'style="padding:11px 15px;border:0;border-radius:8px;">' +
+            '📊 Yearly Excel</button>' +
+
+            '</div>' +
+
+            '</div></div>';
+
+        document.body.insertAdjacentHTML(
+            "beforeend",
+            html
+        );
+
+        document.getElementById(
+            "yearlyCloseBtn"
+        ).onclick = function () {
+            document.getElementById(
+                YD.modalId
+            ).remove();
+        };
+
+        document.getElementById(
+            "yearlyPdfBtn"
+        ).onclick = function () {
+            yearlyPDF(year);
+        };
+
+        document.getElementById(
+            "yearlyShareBtn"
+        ).onclick = function () {
+            yearlyPDF(year, true);
+        };
+
+        document.getElementById(
+            "yearlyExcelBtn"
+        ).onclick = function () {
+
+            if (typeof exportYearlyExcel === "function") {
+                exportYearlyExcel();
+            } else {
+                alert("Yearly Excel function available nahi hai.");
+            }
+        };
+    }
+
+    function yearlyCard(title, value) {
+
+        return (
+            '<div style="background:#f5f5f5;border-radius:10px;' +
+            'padding:15px;text-align:center;">' +
+
+            '<div style="font-size:14px;">' +
+            title +
+            '</div>' +
+
+            '<strong style="font-size:20px;">' +
+            value +
+            '</strong>' +
+
+            '</div>'
+        );
+    }
+
+    async function yearlyPDF(year, share) {
+
+        if (
+            typeof html2canvas === "undefined" ||
+            !window.jspdf ||
+            !window.jspdf.jsPDF
+        ) {
+            alert(
+                "PDF library load nahi hui. Internet on karke app reload karo."
+            );
+            return;
+        }
+
+        var data = yearlyData(year);
+
+        var total = 0;
+
+        data.forEach(function (x) {
+            total += x.amount;
+        });
+
+        var report =
+            document.createElement("div");
+
+        report.style.position = "absolute";
+        report.style.left = "-99999px";
+        report.style.width = "800px";
+        report.style.background = "#fff";
+        report.style.padding = "30px";
+        report.style.fontFamily = "Arial";
+
+        var h =
+            '<h1 style="text-align:center;">' +
+            'अंजुमन गौसिया तालीमुल कुरआन' +
+            '</h1>' +
+
+            '<div style="text-align:center;">' +
+            'PTR No.: 10418-95 (पुणे)<br>' +
+            '42, कोरेगांव पार्क, गाडगे महाराज वस्ती, पुणे - 1' +
+            '</div>' +
+
+            '<h2 style="text-align:center;">' +
+            'Yearly Collection Report - ' +
+            year +
+            '</h2>' +
+
+            '<table style="width:100%;border-collapse:collapse;">' +
+
+            '<tr>' +
+            '<th style="border:1px solid #000;padding:8px;">Month</th>' +
+            '<th style="border:1px solid #000;padding:8px;">Receipts</th>' +
+            '<th style="border:1px solid #000;padding:8px;">Paid</th>' +
+            '<th style="border:1px solid #000;padding:8px;">Unpaid</th>' +
+            '<th style="border:1px solid #000;padding:8px;">Amount</th>' +
+            '</tr>';
+
+        data.forEach(function (x) {
+
+            h +=
+                '<tr>' +
+
+                '<td style="border:1px solid #000;padding:7px;">' +
+                escapeHTML(formatMonth(x.month)) +
+                '</td>' +
+
+                '<td style="border:1px solid #000;padding:7px;text-align:center;">' +
+                x.receipts +
+                '</td>' +
+
+                '<td style="border:1px solid #000;padding:7px;text-align:center;">' +
+                x.paid +
+                '</td>' +
+
+                '<td style="border:1px solid #000;padding:7px;text-align:center;">' +
+                x.unpaid +
+                '</td>' +
+
+                '<td style="border:1px solid #000;padding:7px;text-align:right;">' +
+                money(x.amount) +
+                '</td>' +
+
+                '</tr>';
+        });
+
+        h +=
+            '</table>' +
+
+            '<h3 style="text-align:right;">' +
+            'Total Collection: ' +
+            money(total) +
+            '</h3>' +
+
+            '<p style="text-align:right;">' +
+            'Aadilshah Hussain' +
+            '</p>';
+
+        report.innerHTML = h;
+
+        document.body.appendChild(report);
+
+        try {
+
+            var canvas =
+                await html2canvas(report, {
+                    scale: 2,
+                    backgroundColor: "#ffffff"
+                });
+
+            var img =
+                canvas.toDataURL("image/png");
+
+            var PDF =
+                window.jspdf.jsPDF;
+
+            var pdf =
+                new PDF(
+                    "p",
+                    "mm",
+                    "a4"
+                );
+
+            var width =
+                pdf.internal.pageSize.getWidth();
+
+            var height =
+                canvas.height *
+                width /
+                canvas.width;
+
+            pdf.addImage(
+                img,
+                "PNG",
+                0,
+                0,
+                width,
+                height
+            );
+
+            var filename =
+                "Yearly_Report_" +
+                year +
+                ".pdf";
+
+            if (
+                share &&
+                navigator.share &&
+                typeof File !== "undefined"
+            ) {
+
+                var blob =
+                    pdf.output("blob");
+
+                var file =
+                    new File(
+                        [blob],
+                        filename,
+                        {
+                            type: "application/pdf"
+                        }
+                    );
+
+                try {
+
+                    await navigator.share({
+                        title:
+                            "Yearly Collection Report " +
+                            year,
+                        text:
+                            "Anjuman Gosiya Yearly Report",
+                        files: [file]
+                    });
+
+                } catch (e) {
+
+                    if (
+                        e.name !==
+                        "AbortError"
+                    ) {
+                        pdf.save(filename);
+                    }
+                }
+
+            } else {
+
+                pdf.save(filename);
+
+                alert(
+                    "PDF save ho gaya. Ab WhatsApp se share kar sakte ho."
+                );
+            }
+
+        } catch (error) {
+
+            console.error(error);
+
+            alert(
+                "Yearly PDF banate waqt error aaya."
+            );
+
+        } finally {
+
+            report.remove();
+        }
+    }
+
+    function addYearlyButton() {
+
+        if (
+            document.getElementById(
+                YD.cardId
+            )
+        ) {
+            return;
+        }
+
+        var home =
+            document.getElementById(
+                "homePage"
+            );
+
+        if (!home) {
+            return;
+        }
+
+        var card =
+            document.createElement("div");
+
+        card.id = YD.cardId;
+
+        card.style.cssText =
+            "margin:12px 0;padding:15px;" +
+            "border-radius:12px;" +
+            "background:#f5f5f5;text-align:center;";
+
+        card.innerHTML =
+            '<button style="' +
+            'width:100%;padding:14px;' +
+            'border:0;border-radius:10px;' +
+            'font-size:17px;' +
+            '">' +
+            '📊 Yearly Dashboard' +
+            '</button>';
+
+        card.querySelector(
+            "button"
+        ).onclick = yearlyOpen;
+
+        home.appendChild(card);
+    }
+
+    document.addEventListener(
+        "DOMContentLoaded",
+        function () {
+
+            setTimeout(
+                addYearlyButton,
+                500
+            );
+
+        }
+    );
+
+})();
