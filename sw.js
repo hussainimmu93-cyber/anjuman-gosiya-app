@@ -1,6 +1,6 @@
 "use strict";
 
-const CACHE_NAME = "anjuman-gosiya-v2";
+const CACHE_NAME = "anjuman-gosiya-v3";
 
 const FILES = [
     "./",
@@ -25,35 +25,45 @@ self.addEventListener("install", function (event) {
 
 self.addEventListener("activate", function (event) {
     event.waitUntil(
-        caches.keys().then(function (keys) {
-            return Promise.all(
-                keys.map(function (key) {
-                    if (key !== CACHE_NAME) {
-                        return caches.delete(key);
-                    }
-                })
-            );
-        }).then(function () {
-            return self.clients.claim();
-        })
+        caches.keys()
+            .then(function (keys) {
+                return Promise.all(
+                    keys.map(function (key) {
+                        if (key !== CACHE_NAME) {
+                            return caches.delete(key);
+                        }
+                    })
+                );
+            })
+            .then(function () {
+                return self.clients.claim();
+            })
     );
 });
 
 self.addEventListener("fetch", function (event) {
     event.respondWith(
-        caches.match(event.request)
-            .then(function (response) {
-                if (response) {
-                    return response;
+        fetch(event.request)
+            .then(function (networkResponse) {
+                if (
+                    networkResponse &&
+                    networkResponse.status === 200 &&
+                    event.request.method === "GET"
+                ) {
+                    var responseClone = networkResponse.clone();
+
+                    caches.open(CACHE_NAME).then(function (cache) {
+                        cache.put(event.request, responseClone);
+                    });
                 }
 
-                return fetch(event.request)
-                    .then(function (networkResponse) {
-                        return networkResponse;
-                    });
+                return networkResponse;
             })
             .catch(function () {
-                return caches.match("./index.html");
+                return caches.match(event.request)
+                    .then(function (response) {
+                        return response || caches.match("./index.html");
+                    });
             })
     );
 });
