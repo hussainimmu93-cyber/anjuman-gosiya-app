@@ -1,19 +1,21 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+
   <link rel="manifest" href="manifest.json">
-<meta name="theme-color" content="#0f766e">
-<meta name="mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-capable" content="yes">
 
-<meta charset="UTF-8">
+  <meta name="theme-color" content="#0f766e">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
 
-<meta
-    name="viewport"
-    content="width=device-width, initial-scale=1.0"
->
+  <meta charset="UTF-8">
 
-<title>Anjuman Gosiya Taalimul Quran</title>
+  <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0"
+  >
+
+  <title>Anjuman Gosiya Taalimul Quran</title>
 
 <style>
 
@@ -363,9 +365,9 @@ label {
             📋 Duplicate Receipt
         </button>
 
-      <button id="homeViewReceipt">
-    👁️ View Receipt
-      </button>
+        <button id="homeViewReceipt">
+            👁️ View Receipt
+        </button>
 
         <button id="homeMonthly">
             📊 Monthly / Yearly Report
@@ -728,25 +730,103 @@ label {
 </div>
 
 
+<!-- =========================
+     EXISTING LIBRARIES
+========================= -->
+
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 
+
+<!-- =========================
+     FIREBASE LIBRARIES
+========================= -->
+
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+
+
+<!-- =========================
+     FIREBASE CONFIG
+========================= -->
+
+<script>
+
+const firebaseConfig = {
+
+    apiKey: "AIzaSyAjRyTBZEVTKJAfq2HrlHiiiMgvsAPXhQQ",
+
+    authDomain: "anjuman-gosiya.firebaseapp.com",
+
+    projectId: "anjuman-gosiya",
+
+    storageBucket: "anjuman-gosiya.firebasestorage.app",
+
+    messagingSenderId: "1041722354853",
+
+    appId: "1:1041722354853:web:bd03fad87112a09cd0314c",
+
+    measurementId: "G-MQNR52JDKQ"
+
+};
+
+
+if (!firebase.apps.length) {
+
+    firebase.initializeApp(firebaseConfig);
+
+}
+
+
+const db = firebase.firestore();
+
+
+console.log("Firebase Firestore Connected");
+
+
+</script>
+
+
+<!-- =========================
+     MAIN APP
+========================= -->
+
 <script src="app.js"></script>
 
-  <script>
+
+<!-- =========================
+     SERVICE WORKER
+========================= -->
+
+<script>
+
 if ("serviceWorker" in navigator) {
+
     navigator.serviceWorker.register("sw.js")
+
         .then(function () {
+
             console.log("Service Worker Registered");
+
         })
+
         .catch(function (error) {
-            console.log("Service Worker Error:", error);
+
+            console.log(
+                "Service Worker Error:",
+                error
+            );
+
         });
+
 }
-  </script>
+
+</script>
+
 
 </body>
 </html>

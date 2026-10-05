@@ -1,5 +1,10 @@
 "use strict";
 
+/* =========================================================
+   ANJUMAN GOSIYA APP
+   FIRESTORE ONLINE SYNC VERSION
+   ========================================================= */
+
 var KEY = "ANJUMAN_GOSIYA_APP";
 
 var members = [];
@@ -8,10 +13,14 @@ var receipts = [];
 var editingMemberId = null;
 var editingReceiptId = null;
 
+var db = null;
+var firestoreReady = false;
+var firestoreUnsubscribe = null;
 
-/* =========================
+
+/* =========================================================
    BASIC
-========================= */
+   ========================================================= */
 
 function $(id) {
     return document.getElementById(id);
@@ -93,20 +102,247 @@ function formatMonth(month) {
 }
 
 
-/* =========================
-   STORAGE
-========================= */
+/* =========================================================
+   FIRESTORE
+   ========================================================= */
 
+function initFirestore() {
+
+    try {
+
+        if (
+            typeof firebase === "undefined"
+        ) {
+
+            console.warn(
+                "Firebase SDK not found."
+            );
+
+            firestoreReady = false;
+            return;
+        }
+
+        if (
+            !firebase.apps ||
+            firebase.apps.length === 0
+        ) {
+
+            console.warn(
+                "Firebase app is not initialized."
+            );
+
+            firestoreReady = false;
+            return;
+        }
+
+        db = firebase.firestore();
+
+        firestoreReady = true;
+
+        console.log(
+            "✅ Firestore connected."
+        );
+
+        startFirestoreListener();
+
+    } catch (error) {
+
+        console.error(
+            "Firestore initialization error:",
+            error
+        );
+
+        firestoreReady = false;
+    }
+}
+
+
+function getFirestoreDocument() {
+
+    if (!firestoreReady || !db) {
+        return null;
+    }
+
+    return db
+        .collection("anjumanData")
+        .doc("main");
+}
+
+
+function startFirestoreListener() {
+
+    var docRef =
+        getFirestoreDocument();
+
+    if (!docRef) {
+        return;
+    }
+
+    if (firestoreUnsubscribe) {
+
+        try {
+            firestoreUnsubscribe();
+        } catch (e) {}
+    }
+
+    firestoreUnsubscribe =
+        docRef.onSnapshot(
+
+            function(snapshot) {
+
+                if (!snapshot.exists) {
+
+                    console.log(
+                        "Firestore document does not exist yet."
+                    );
+
+                    /*
+                     * First upload existing local data.
+                     */
+                    if (
+                        members.length > 0 ||
+                        receipts.length > 0
+                    ) {
+
+                        uploadDataToFirestore();
+                    }
+
+                    return;
+                }
+
+                var data =
+                    snapshot.data() || {};
+
+                if (
+                    Array.isArray(data.members)
+                ) {
+
+                    members =
+                        data.members;
+                }
+
+                if (
+                    Array.isArray(data.receipts)
+                ) {
+
+                    receipts =
+                        data.receipts;
+                }
+
+                saveLocalCache();
+
+                refreshAll();
+
+                populateMemberDropdown();
+
+                loadSingleMemberDropdown();
+
+                console.log(
+                    "☁️ Firestore data synced."
+                );
+            },
+
+            function(error) {
+
+                console.error(
+                    "Firestore listener error:",
+                    error
+                );
+            }
+        );
+}
+
+
+async function uploadDataToFirestore() {
+
+    if (!firestoreReady || !db) {
+
+        saveLocalCache();
+
+        return;
+    }
+
+    try {
+
+        var docRef =
+            getFirestoreDocument();
+
+        if (!docRef) {
+            return;
+        }
+
+        await docRef.set({
+
+            members:
+                members,
+
+            receipts:
+                receipts,
+
+            updatedAt:
+                firebase.firestore.FieldValue.serverTimestamp()
+
+        });
+
+        saveLocalCache();
+
+        console.log(
+            "☁️ Data uploaded to Firestore."
+        );
+
+    } catch (error) {
+
+        console.error(
+            "Firestore upload error:",
+            error
+        );
+
+        saveLocalCache();
+    }
+}
+
+
+/* =========================================================
+   LOCAL CACHE
+   ========================================================= */
+
+function saveLocalCache() {
+
+    try {
+
+        localStorage.setItem(
+            KEY,
+            JSON.stringify({
+                members: members,
+                receipts: receipts
+            })
+        );
+
+    } catch (error) {
+
+        console.error(
+            "Local cache error:",
+            error
+        );
+    }
+}
+
+
+/*
+ * saveData() keeps the same function name
+ * so the rest of the application remains compatible.
+ */
 function saveData() {
 
-    localStorage.setItem(
-        KEY,
-        JSON.stringify({
-            members: members,
-            receipts: receipts
-        })
-    );
+    saveLocalCache();
+
+    /*
+     * Upload online without blocking
+     * the UI.
+     */
+    uploadDataToFirestore();
 }
+
 
 function loadData() {
 
@@ -138,9 +374,9 @@ function loadData() {
 }
 
 
-/* =========================
+/* =========================================================
    PAGE
-========================= */
+   ========================================================= */
 
 function showPage(pageId, navId) {
 
@@ -175,9 +411,9 @@ function showPage(pageId, navId) {
 }
 
 
-/* =========================
+/* =========================================================
    MEMBER EDIT MODAL
-========================= */
+   ========================================================= */
 
 function ensureMemberEditModal() {
 
@@ -234,6 +470,7 @@ function ensureMemberEditModal() {
         closeMemberEditModal;
 }
 
+
 function openMemberModal() {
 
     ensureMemberEditModal();
@@ -251,6 +488,7 @@ function openMemberModal() {
 
     $("editMemberName").focus();
 }
+
 
 function openEditMemberModal(id) {
 
@@ -281,6 +519,7 @@ function openEditMemberModal(id) {
         "flex";
 }
 
+
 function closeMemberEditModal() {
 
     if ($("memberEditModal")) {
@@ -291,9 +530,9 @@ function closeMemberEditModal() {
 }
 
 
-/* =========================
+/* =========================================================
    SAVE / EDIT MEMBER
-========================= */
+   ========================================================= */
 
 function validateMobile(
     mobile,
@@ -348,6 +587,7 @@ function validateMobile(
 
     return clean;
 }
+
 
 function saveEditedMember() {
 
@@ -440,9 +680,9 @@ function saveEditedMember() {
 }
 
 
-/* =========================
+/* =========================================================
    OLD MEMBER MODAL SUPPORT
-========================= */
+   ========================================================= */
 
 function closeMemberModal() {
 
@@ -452,6 +692,7 @@ function closeMemberModal() {
             "none";
     }
 }
+
 
 function saveMember() {
 
@@ -515,9 +756,9 @@ function saveMember() {
 }
 
 
-/* =========================
+/* =========================================================
    MEMBER LIST
-========================= */
+   ========================================================= */
 
 function renderMembers() {
 
@@ -547,6 +788,7 @@ function renderMembers() {
                     receipt.memberId ===
                     member.id
                 );
+
             }).length;
 
         var row =
@@ -595,6 +837,7 @@ function renderMembers() {
         container.appendChild(row);
     });
 }
+
 
 function deleteMember(id) {
 
@@ -649,9 +892,9 @@ function deleteMember(id) {
 }
 
 
-/* =========================
+/* =========================================================
    RECEIPT NUMBER
-========================= */
+   ========================================================= */
 
 function getNextReceiptNo() {
 
@@ -685,9 +928,9 @@ function getNextReceiptNo() {
 }
 
 
-/* =========================
+/* =========================================================
    MEMBER DROPDOWN
-========================= */
+   ========================================================= */
 
 function populateMemberDropdown() {
 
@@ -722,9 +965,9 @@ function populateMemberDropdown() {
 }
 
 
-/* =========================
+/* =========================================================
    SINGLE MEMBER DROPDOWN
-========================= */
+   ========================================================= */
 
 function loadSingleMemberDropdown() {
 
@@ -759,9 +1002,9 @@ function loadSingleMemberDropdown() {
 }
 
 
-/* =========================
+/* =========================================================
    RECEIPT FORM
-========================= */
+   ========================================================= */
 
 function prepareReceiptForm() {
 
@@ -795,9 +1038,9 @@ function prepareReceiptForm() {
 }
 
 
-/* =========================
+/* =========================================================
    EDIT RECEIPT
-========================= */
+   ========================================================= */
 
 function editReceipt(id) {
 
@@ -852,9 +1095,9 @@ function editReceipt(id) {
 }
 
 
-/* =========================
+/* =========================================================
    SAVE / UPDATE RECEIPT
-========================= */
+   ========================================================= */
 
 function saveReceipt() {
 
@@ -1049,9 +1292,9 @@ function saveReceipt() {
 }
 
 
-/* =========================
+/* =========================================================
    GET MEMBER
-========================= */
+   ========================================================= */
 
 function getMemberById(id) {
 
@@ -1062,9 +1305,9 @@ function getMemberById(id) {
 }
 
 
-/* =========================
+/* =========================================================
    RECEIPT PREVIEW
-========================= */
+   ========================================================= */
 
 function renderReceiptPreview(id) {
 
@@ -1208,9 +1451,9 @@ function renderReceiptPreview(id) {
 }
 
 
-/* =========================
+/* =========================================================
    DUPLICATE / VIEW RECEIPT
-========================= */
+   ========================================================= */
 
 function openDuplicateModal() {
 
@@ -1226,11 +1469,13 @@ function openDuplicateModal() {
         "flex";
 }
 
+
 function closeDuplicateModal() {
 
     $("duplicateModal").style.display =
         "none";
 }
+
 
 function populateDuplicateMembers() {
 
@@ -1259,6 +1504,7 @@ function populateDuplicateMembers() {
         select.appendChild(option);
     });
 }
+
 
 function showDuplicateReceipts() {
 
@@ -1346,6 +1592,7 @@ function showDuplicateReceipts() {
     });
 }
 
+
 function viewDuplicateReceipt(id) {
 
     var receipt =
@@ -1402,6 +1649,7 @@ function viewDuplicateReceipt(id) {
 
     window.scrollTo(0, 0);
 }
+
 
 function shareDuplicateReceipt(id) {
 
@@ -1464,9 +1712,9 @@ function shareDuplicateReceipt(id) {
 }
 
 
-/* =========================
+/* =========================================================
    RECEIPT PDF
-========================= */
+   ========================================================= */
 
 async function createReceiptPDF(id) {
 
@@ -1556,6 +1804,7 @@ async function createReceiptPDF(id) {
     return pdf;
 }
 
+
 async function downloadReceiptPDF(id) {
 
     try {
@@ -1593,6 +1842,7 @@ async function downloadReceiptPDF(id) {
         );
     }
 }
+
 
 async function shareReceiptPDF(id) {
 
@@ -1686,17 +1936,23 @@ async function shareReceiptPDF(id) {
 }
 
 
-/* =========================
+/* =========================================================
    DASHBOARD
-========================= */
+   ========================================================= */
 
 function updateDashboard() {
 
-    $("totalMembers").textContent =
-        members.length;
+    if ($("totalMembers")) {
 
-    $("totalReceipts").textContent =
-        receipts.length;
+        $("totalMembers").textContent =
+            members.length;
+    }
+
+    if ($("totalReceipts")) {
+
+        $("totalReceipts").textContent =
+            receipts.length;
+    }
 
     var total =
         receipts.reduce(
@@ -1713,8 +1969,11 @@ function updateDashboard() {
             0
         );
 
-    $("totalCollection").textContent =
-        money(total);
+    if ($("totalCollection")) {
+
+        $("totalCollection").textContent =
+            money(total);
+    }
 
     var month =
         currentMonth();
@@ -1741,14 +2000,17 @@ function updateDashboard() {
             0
         );
 
-    $("thisMonthCollection").textContent =
-        money(monthTotal);
+    if ($("thisMonthCollection")) {
+
+        $("thisMonthCollection").textContent =
+            money(monthTotal);
+    }
 }
 
 
-/* =========================
+/* =========================================================
    REPORT DATA
-========================= */
+   ========================================================= */
 
 function getReceiptForMemberMonth(
     memberId,
@@ -1785,6 +2047,7 @@ function getReceiptForMemberMonth(
     ];
 }
 
+
 function getYearMonths(year) {
 
     var result = [];
@@ -1806,9 +2069,9 @@ function getYearMonths(year) {
 }
 
 
-/* =========================
-   SHOW MONTHLY REPORT
-========================= */
+/* =========================================================
+   MONTHLY REPORT
+   ========================================================= */
 
 function showMonthlyReport() {
 
@@ -1948,14 +2211,17 @@ function showMonthlyReport() {
 
         "</div>";
 
-    $("monthlyReport").innerHTML =
-        html;
+    if ($("monthlyReport")) {
+
+        $("monthlyReport").innerHTML =
+            html;
+    }
 }
 
 
-/* =========================
+/* =========================================================
    PDF TABLE
-========================= */
+   ========================================================= */
 
 function drawPDFTable(
     pdf,
@@ -2092,9 +2358,9 @@ function drawPDFTable(
 }
 
 
-/* =========================
+/* =========================================================
    MONTH-WISE PDF
-========================= */
+   ========================================================= */
 
 async function createMonthWisePDF() {
 
@@ -2247,10 +2513,9 @@ async function createMonthWisePDF() {
 }
 
 
-/* =========================
+/* =========================================================
    MEMBER-WISE PDF
-   WORKING VERSION
-========================= */
+   ========================================================= */
 
 async function createMemberWisePDF() {
 
@@ -2767,9 +3032,9 @@ async function createMemberWisePDF() {
 }
 
 
-/* =========================
+/* =========================================================
    SINGLE MEMBER EXCEL
-========================= */
+   ========================================================= */
 
 function createSingleMemberExcel() {
 
@@ -2993,9 +3258,9 @@ function createSingleMemberExcel() {
 }
 
 
-/* =========================
+/* =========================================================
    SINGLE MEMBER PDF
-========================= */
+   ========================================================= */
 
 async function createSingleMemberPDF() {
 
@@ -3458,9 +3723,9 @@ async function createSingleMemberPDF() {
 }
 
 
-/* =========================
+/* =========================================================
    EXCEL MONTH-WISE
-========================= */
+   ========================================================= */
 
 function exportMonthlyExcel() {
 
@@ -3576,9 +3841,9 @@ function exportMonthlyExcel() {
 }
 
 
-/* =========================
+/* =========================================================
    EXCEL MEMBER-WISE
-========================= */
+   ========================================================= */
 
 function exportMemberWiseExcel() {
 
@@ -3682,9 +3947,9 @@ function exportMemberWiseExcel() {
 }
 
 
-/* =========================
+/* =========================================================
    GENERIC EXCEL
-========================= */
+   ========================================================= */
 
 function downloadExcel(
     rows,
@@ -3724,9 +3989,9 @@ function downloadExcel(
 }
 
 
-/* =========================
+/* =========================================================
    YEARLY EXCEL
-========================= */
+   ========================================================= */
 
 function exportYearlyExcel() {
 
@@ -3808,9 +4073,9 @@ function exportYearlyExcel() {
 }
 
 
-/* =========================
+/* =========================================================
    BACKUP
-========================= */
+   ========================================================= */
 
 function backupData() {
 
@@ -3858,9 +4123,9 @@ function backupData() {
 }
 
 
-/* =========================
+/* =========================================================
    RESTORE
-========================= */
+   ========================================================= */
 
 function restoreData(file) {
 
@@ -3925,9 +4190,9 @@ function restoreData(file) {
 }
 
 
-/* =========================
+/* =========================================================
    CLEAR ALL DATA
-========================= */
+   ========================================================= */
 
 function clearAllData() {
 
@@ -3966,9 +4231,9 @@ function clearAllData() {
 }
 
 
-/* =========================
+/* =========================================================
    REFRESH
-========================= */
+   ========================================================= */
 
 function refreshAll() {
 
@@ -3978,9 +4243,9 @@ function refreshAll() {
 }
 
 
-/* =========================
+/* =========================================================
    DOM READY
-========================= */
+   ========================================================= */
 
 document.addEventListener(
     "DOMContentLoaded",
@@ -3998,8 +4263,22 @@ document.addEventListener(
 
 
         /* =====================
+           FIRESTORE START
+           ===================== */
+
+        setTimeout(
+            function() {
+
+                initFirestore();
+
+            },
+            300
+        );
+
+
+        /* =====================
            HOME
-        ===================== */
+           ===================== */
 
         if ($("homeAddMember")) {
 
@@ -4077,7 +4356,7 @@ document.addEventListener(
 
         /* =====================
            NAVIGATION
-        ===================== */
+           ===================== */
 
         if ($("navHome")) {
 
@@ -4146,7 +4425,7 @@ document.addEventListener(
 
         /* =====================
            MEMBER
-        ===================== */
+           ===================== */
 
         if ($("membersAdd")) {
 
@@ -4187,7 +4466,7 @@ document.addEventListener(
 
         /* =====================
            RECEIPT
-        ===================== */
+           ===================== */
 
         if ($("saveReceipt")) {
 
@@ -4201,7 +4480,7 @@ document.addEventListener(
 
         /* =====================
            DUPLICATE
-        ===================== */
+           ===================== */
 
         if ($("closeDuplicate")) {
 
@@ -4233,7 +4512,7 @@ document.addEventListener(
 
         /* =====================
            REPORT BUTTONS
-        ===================== */
+           ===================== */
 
         if ($("monthlyPDFMonthWise")) {
 
@@ -4301,7 +4580,7 @@ document.addEventListener(
 
         /* =====================
            SETTINGS
-        ===================== */
+           ===================== */
 
         if ($("backupButton")) {
 
@@ -4352,7 +4631,7 @@ document.addEventListener(
 
         /* =====================
            DEFAULT REPORT YEAR
-        ===================== */
+           ===================== */
 
         if ($("monthlyMonth")) {
 
@@ -4371,9 +4650,9 @@ document.addEventListener(
     }
 );
 
+
 /* =========================================================
    YEARLY DASHBOARD + YEARLY PDF
-   SAFE ADD-ON
    ========================================================= */
 
 (function () {
@@ -4381,101 +4660,190 @@ document.addEventListener(
     "use strict";
 
     var YD = {
-        modalId: "anjumanYearlyDashboardModal",
-        cardId: "anjumanYearlyDashboardCard"
+        modalId:
+            "anjumanYearlyDashboardModal",
+
+        cardId:
+            "anjumanYearlyDashboardCard"
     };
 
+
     function yearlyYear() {
+
         return new Date().getFullYear();
     }
 
+
     function yearlyData(year) {
 
-        var months = getYearMonths(year);
+        var months =
+            getYearMonths(year);
+
         var data = [];
 
         months.forEach(function (month) {
 
-            var list = receipts.filter(function (r) {
-                return String(r.month || "") === String(month);
-            });
+            var list =
+                receipts.filter(
+                    function (r) {
+
+                        return String(
+                            r.month || ""
+                        ) === String(month);
+
+                    }
+                );
 
             var amount = 0;
 
             list.forEach(function (r) {
-                amount += Number(r.amount || 0);
+
+                amount +=
+                    Number(
+                        r.amount || 0
+                    );
             });
 
             var paid = 0;
 
             members.forEach(function (m) {
-                if (getReceiptForMemberMonth(m.id, month)) {
+
+                if (
+                    getReceiptForMemberMonth(
+                        m.id,
+                        month
+                    )
+                ) {
                     paid++;
                 }
             });
 
             data.push({
-                month: month,
-                receipts: list.length,
-                amount: amount,
-                paid: paid,
-                unpaid: Math.max(
-                    members.length - paid,
-                    0
-                )
+
+                month:
+                    month,
+
+                receipts:
+                    list.length,
+
+                amount:
+                    amount,
+
+                paid:
+                    paid,
+
+                unpaid:
+                    Math.max(
+                        members.length - paid,
+                        0
+                    )
             });
         });
 
         return data;
     }
 
+
     function yearlyOpen() {
 
-        var old = document.getElementById(YD.modalId);
+        var old =
+            document.getElementById(
+                YD.modalId
+            );
 
         if (old) {
             old.remove();
         }
 
-        var year = yearlyYear();
-        var data = yearlyData(year);
+        var year =
+            yearlyYear();
+
+        var data =
+            yearlyData(year);
 
         var total = 0;
         var totalReceipts = 0;
 
         data.forEach(function (x) {
+
             total += x.amount;
-            totalReceipts += x.receipts;
+
+            totalReceipts +=
+                x.receipts;
         });
 
         var html =
-            '<div id="' + YD.modalId + '" ' +
-            'style="position:fixed;inset:0;background:rgba(0,0,0,.65);' +
-            'z-index:99999;overflow:auto;padding:15px;">' +
 
-            '<div style="max-width:900px;margin:20px auto;background:#fff;' +
-            'border-radius:15px;padding:18px;font-family:Arial;">' +
+            '<div id="' +
+            YD.modalId +
+            '" ' +
 
-            '<div style="display:flex;justify-content:space-between;' +
-            'align-items:center;">' +
+            'style="' +
+            'position:fixed;' +
+            'inset:0;' +
+            'background:rgba(0,0,0,.65);' +
+            'z-index:99999;' +
+            'overflow:auto;' +
+            'padding:15px;' +
+            '">' +
 
-            '<h2 style="margin:0;">📊 Yearly Dashboard ' +
-            year + '</h2>' +
+            '<div style="' +
+            'max-width:900px;' +
+            'margin:20px auto;' +
+            'background:#fff;' +
+            'border-radius:15px;' +
+            'padding:18px;' +
+            'font-family:Arial;' +
+            '">' +
+
+            '<div style="' +
+            'display:flex;' +
+            'justify-content:space-between;' +
+            'align-items:center;' +
+            '">' +
+
+            '<h2 style="margin:0;">' +
+            '📊 Yearly Dashboard ' +
+            year +
+            '</h2>' +
 
             '<button id="yearlyCloseBtn" ' +
-'style="padding:9px 16px;border:0;border-radius:8px;font-size:16px;">' +
-'⬅️ Back' +
-'</button>' +
+
+            'style="' +
+            'padding:9px 16px;' +
+            'border:0;' +
+            'border-radius:8px;' +
+            'font-size:16px;' +
+            '">' +
+
+            '⬅️ Back' +
+
+            '</button>' +
+
             '</div>' +
 
-            '<div style="display:grid;grid-template-columns:' +
-            'repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-top:15px;">' +
+            '<div style="' +
+            'display:grid;' +
+            'grid-template-columns:' +
+            'repeat(auto-fit,minmax(150px,1fr));' +
+            'gap:10px;' +
+            'margin-top:15px;' +
+            '">' +
 
-            yearlyCard("👥 Members", members.length) +
+            yearlyCard(
+                "👥 Members",
+                members.length
+            ) +
 
-            yearlyCard("🧾 Receipts", totalReceipts) +
+            yearlyCard(
+                "🧾 Receipts",
+                totalReceipts
+            ) +
 
-            yearlyCard("💰 Collection", money(total)) +
+            yearlyCard(
+                "💰 Collection",
+                money(total)
+            ) +
 
             '</div>' +
 
@@ -4483,110 +4851,213 @@ document.addEventListener(
 
             '<div style="overflow:auto;">' +
 
-            '<table style="width:100%;border-collapse:collapse;">' +
+            '<table style="' +
+            'width:100%;' +
+            'border-collapse:collapse;' +
+            '">' +
 
             '<tr style="background:#eee;">' +
 
             '<th style="padding:8px;">Month</th>' +
+
             '<th style="padding:8px;">Receipts</th>' +
+
             '<th style="padding:8px;">Paid</th>' +
+
             '<th style="padding:8px;">Unpaid</th>' +
+
             '<th style="padding:8px;">Collection</th>' +
 
             '</tr>';
 
+
         data.forEach(function (x) {
 
             html +=
+
                 '<tr>' +
 
-                '<td style="padding:7px;border-bottom:1px solid #ddd;">' +
-                escapeHTML(formatMonth(x.month)) +
+                '<td style="' +
+                'padding:7px;' +
+                'border-bottom:1px solid #ddd;' +
+                '">' +
+
+                escapeHTML(
+                    formatMonth(x.month)
+                ) +
+
                 '</td>' +
 
-                '<td style="padding:7px;text-align:center;">' +
+                '<td style="' +
+                'padding:7px;' +
+                'text-align:center;' +
+                '">' +
+
                 x.receipts +
+
                 '</td>' +
 
-                '<td style="padding:7px;text-align:center;">' +
+                '<td style="' +
+                'padding:7px;' +
+                'text-align:center;' +
+                '">' +
+
                 x.paid +
+
                 '</td>' +
 
-                '<td style="padding:7px;text-align:center;">' +
+                '<td style="' +
+                'padding:7px;' +
+                'text-align:center;' +
+                '">' +
+
                 x.unpaid +
+
                 '</td>' +
 
-                '<td style="padding:7px;text-align:right;">' +
+                '<td style="' +
+                'padding:7px;' +
+                'text-align:right;' +
+                '">' +
+
                 money(x.amount) +
+
                 '</td>' +
 
                 '</tr>';
         });
 
+
         html +=
-            '</table></div>' +
 
-            '<div style="display:flex;gap:8px;flex-wrap:wrap;' +
-            'margin-top:18px;">' +
-
-            '<button id="yearlyPdfBtn" ' +
-            'style="padding:11px 15px;border:0;border-radius:8px;">' +
-            '📄 Save Yearly PDF</button>' +
-
-            '<button id="yearlyShareBtn" ' +
-            'style="padding:11px 15px;border:0;border-radius:8px;">' +
-            '📤 Share Yearly PDF</button>' +
-
-            '<button id="yearlyExcelBtn" ' +
-            'style="padding:11px 15px;border:0;border-radius:8px;">' +
-            '📊 Yearly Excel</button>' +
+            '</table>' +
 
             '</div>' +
 
-            '</div></div>';
+            '<div style="' +
+            'display:flex;' +
+            'gap:8px;' +
+            'flex-wrap:wrap;' +
+            'margin-top:18px;' +
+            '">' +
+
+            '<button id="yearlyPdfBtn" ' +
+
+            'style="' +
+            'padding:11px 15px;' +
+            'border:0;' +
+            'border-radius:8px;' +
+            '">' +
+
+            '📄 Save Yearly PDF' +
+
+            '</button>' +
+
+            '<button id="yearlyShareBtn" ' +
+
+            'style="' +
+            'padding:11px 15px;' +
+            'border:0;' +
+            'border-radius:8px;' +
+            '">' +
+
+            '📤 Share Yearly PDF' +
+
+            '</button>' +
+
+            '<button id="yearlyExcelBtn" ' +
+
+            'style="' +
+            'padding:11px 15px;' +
+            'border:0;' +
+            'border-radius:8px;' +
+            '">' +
+
+            '📊 Yearly Excel' +
+
+            '</button>' +
+
+            '</div>' +
+
+            '</div>' +
+
+            '</div>';
+
 
         document.body.insertAdjacentHTML(
             "beforeend",
             html
         );
 
+
         document.getElementById(
             "yearlyCloseBtn"
         ).onclick = function () {
-            document.getElementById(
-                YD.modalId
-            ).remove();
+
+            var modal =
+                document.getElementById(
+                    YD.modalId
+                );
+
+            if (modal) {
+                modal.remove();
+            }
         };
+
 
         document.getElementById(
             "yearlyPdfBtn"
         ).onclick = function () {
+
             yearlyPDF(year);
         };
+
 
         document.getElementById(
             "yearlyShareBtn"
         ).onclick = function () {
-            yearlyPDF(year, true);
+
+            yearlyPDF(
+                year,
+                true
+            );
         };
+
 
         document.getElementById(
             "yearlyExcelBtn"
         ).onclick = function () {
 
-            if (typeof exportYearlyExcel === "function") {
+            if (
+                typeof exportYearlyExcel ===
+                "function"
+            ) {
+
                 exportYearlyExcel();
+
             } else {
-                alert("Yearly Excel function available nahi hai.");
+
+                alert(
+                    "Yearly Excel function available nahi hai."
+                );
             }
         };
     }
 
-    function yearlyCard(title, value) {
+
+    function yearlyCard(
+        title,
+        value
+    ) {
 
         return (
-            '<div style="background:#f5f5f5;border-radius:10px;' +
-            'padding:15px;text-align:center;">' +
+
+            '<div style="' +
+            'background:#f5f5f5;' +
+            'border-radius:10px;' +
+            'padding:15px;' +
+            'text-align:center;' +
+            '">' +
 
             '<div style="font-size:14px;">' +
             title +
@@ -4600,116 +5071,245 @@ document.addEventListener(
         );
     }
 
-    async function yearlyPDF(year, share) {
+
+    async function yearlyPDF(
+        year,
+        share
+    ) {
 
         if (
-            typeof html2canvas === "undefined" ||
+            typeof html2canvas ===
+            "undefined" ||
+
             !window.jspdf ||
+
             !window.jspdf.jsPDF
         ) {
+
             alert(
                 "PDF library load nahi hui. Internet on karke app reload karo."
             );
+
             return;
         }
 
-        var data = yearlyData(year);
+        var data =
+            yearlyData(year);
 
         var total = 0;
 
         data.forEach(function (x) {
-            total += x.amount;
+
+            total +=
+                x.amount;
         });
+
 
         var report =
             document.createElement("div");
 
-        report.style.position = "absolute";
-        report.style.left = "-99999px";
-        report.style.width = "800px";
-        report.style.background = "#fff";
-        report.style.padding = "30px";
-        report.style.fontFamily = "Arial";
+        report.style.position =
+            "absolute";
+
+        report.style.left =
+            "-99999px";
+
+        report.style.width =
+            "800px";
+
+        report.style.background =
+            "#fff";
+
+        report.style.padding =
+            "30px";
+
+        report.style.fontFamily =
+            "Arial";
+
 
         var h =
+
             '<h1 style="text-align:center;">' +
-            'अंजुमन गौसिया तालीमुल कुरआन' +
+
+            'अंजुमन गौसिया तालीमुल कुराण' +
+
             '</h1>' +
 
             '<div style="text-align:center;">' +
+
             'PTR No.: 10418-95 (पुणे)<br>' +
+
             '42, कोरेगांव पार्क, गाडगे महाराज वस्ती, पुणे - 1' +
+
             '</div>' +
 
             '<h2 style="text-align:center;">' +
+
             'Yearly Collection Report - ' +
+
             year +
+
             '</h2>' +
 
-            '<table style="width:100%;border-collapse:collapse;">' +
+            '<table style="' +
+            'width:100%;' +
+            'border-collapse:collapse;' +
+            '">' +
 
             '<tr>' +
-            '<th style="border:1px solid #000;padding:8px;">Month</th>' +
-            '<th style="border:1px solid #000;padding:8px;">Receipts</th>' +
-            '<th style="border:1px solid #000;padding:8px;">Paid</th>' +
-            '<th style="border:1px solid #000;padding:8px;">Unpaid</th>' +
-            '<th style="border:1px solid #000;padding:8px;">Amount</th>' +
+
+            '<th style="' +
+            'border:1px solid #000;' +
+            'padding:8px;' +
+            '">' +
+
+            'Month' +
+
+            '</th>' +
+
+            '<th style="' +
+            'border:1px solid #000;' +
+            'padding:8px;' +
+            '">' +
+
+            'Receipts' +
+
+            '</th>' +
+
+            '<th style="' +
+            'border:1px solid #000;' +
+            'padding:8px;' +
+            '">' +
+
+            'Paid' +
+
+            '</th>' +
+
+            '<th style="' +
+            'border:1px solid #000;' +
+            'padding:8px;' +
+            '">' +
+
+            'Unpaid' +
+
+            '</th>' +
+
+            '<th style="' +
+            'border:1px solid #000;' +
+            'padding:8px;' +
+            '">' +
+
+            'Amount' +
+
+            '</th>' +
+
             '</tr>';
+
 
         data.forEach(function (x) {
 
             h +=
+
                 '<tr>' +
 
-                '<td style="border:1px solid #000;padding:7px;">' +
-                escapeHTML(formatMonth(x.month)) +
+                '<td style="' +
+                'border:1px solid #000;' +
+                'padding:7px;' +
+                '">' +
+
+                escapeHTML(
+                    formatMonth(x.month)
+                ) +
+
                 '</td>' +
 
-                '<td style="border:1px solid #000;padding:7px;text-align:center;">' +
+                '<td style="' +
+                'border:1px solid #000;' +
+                'padding:7px;' +
+                'text-align:center;' +
+                '">' +
+
                 x.receipts +
+
                 '</td>' +
 
-                '<td style="border:1px solid #000;padding:7px;text-align:center;">' +
+                '<td style="' +
+                'border:1px solid #000;' +
+                'padding:7px;' +
+                'text-align:center;' +
+                '">' +
+
                 x.paid +
+
                 '</td>' +
 
-                '<td style="border:1px solid #000;padding:7px;text-align:center;">' +
+                '<td style="' +
+                'border:1px solid #000;' +
+                'padding:7px;' +
+                'text-align:center;' +
+                '">' +
+
                 x.unpaid +
+
                 '</td>' +
 
-                '<td style="border:1px solid #000;padding:7px;text-align:right;">' +
+                '<td style="' +
+                'border:1px solid #000;' +
+                'padding:7px;' +
+                'text-align:right;' +
+                '">' +
+
                 money(x.amount) +
+
                 '</td>' +
 
                 '</tr>';
         });
 
+
         h +=
+
             '</table>' +
 
             '<h3 style="text-align:right;">' +
+
             'Total Collection: ' +
+
             money(total) +
+
             '</h3>' +
 
             '<p style="text-align:right;">' +
+
             'Aadilshah Hussain' +
+
             '</p>';
 
-        report.innerHTML = h;
 
-        document.body.appendChild(report);
+        report.innerHTML =
+            h;
+
+        document.body.appendChild(
+            report
+        );
+
 
         try {
 
             var canvas =
-                await html2canvas(report, {
-                    scale: 2,
-                    backgroundColor: "#ffffff"
-                });
+                await html2canvas(
+                    report,
+                    {
+                        scale: 2,
+                        backgroundColor:
+                            "#ffffff"
+                    }
+                );
 
             var img =
-                canvas.toDataURL("image/png");
+                canvas.toDataURL(
+                    "image/png"
+                );
 
             var PDF =
                 window.jspdf.jsPDF;
@@ -4729,6 +5329,21 @@ document.addEventListener(
                 width /
                 canvas.width;
 
+            var pageHeight =
+                pdf.internal.pageSize.getHeight();
+
+            /*
+             * Keep yearly report inside A4.
+             */
+            if (
+                height >
+                pageHeight
+            ) {
+
+                height =
+                    pageHeight - 10;
+            }
+
             pdf.addImage(
                 img,
                 "PNG",
@@ -4738,10 +5353,12 @@ document.addEventListener(
                 height
             );
 
+
             var filename =
                 "Yearly_Report_" +
                 year +
                 ".pdf";
+
 
             if (
                 share &&
@@ -4757,19 +5374,24 @@ document.addEventListener(
                         [blob],
                         filename,
                         {
-                            type: "application/pdf"
+                            type:
+                                "application/pdf"
                         }
                     );
 
                 try {
 
                     await navigator.share({
+
                         title:
                             "Yearly Collection Report " +
                             year,
+
                         text:
                             "Anjuman Gosiya Yearly Report",
-                        files: [file]
+
+                        files:
+                            [file]
                     });
 
                 } catch (e) {
@@ -4778,13 +5400,18 @@ document.addEventListener(
                         e.name !==
                         "AbortError"
                     ) {
-                        pdf.save(filename);
+
+                        pdf.save(
+                            filename
+                        );
                     }
                 }
 
             } else {
 
-                pdf.save(filename);
+                pdf.save(
+                    filename
+                );
 
                 alert(
                     "PDF save ho gaya. Ab WhatsApp se share kar sakte ho."
@@ -4804,6 +5431,7 @@ document.addEventListener(
             report.remove();
         }
     }
+
 
     function addYearlyButton() {
 
@@ -4827,28 +5455,43 @@ document.addEventListener(
         var card =
             document.createElement("div");
 
-        card.id = YD.cardId;
+        card.id =
+            YD.cardId;
 
         card.style.cssText =
-            "margin:12px 0;padding:15px;" +
+            "margin:12px 0;" +
+            "padding:15px;" +
             "border-radius:12px;" +
-            "background:#f5f5f5;text-align:center;";
+            "background:#f5f5f5;" +
+            "text-align:center;";
+
 
         card.innerHTML =
+
             '<button style="' +
-            'width:100%;padding:14px;' +
-            'border:0;border-radius:10px;' +
+            'width:100%;' +
+            'padding:14px;' +
+            'border:0;' +
+            'border-radius:10px;' +
             'font-size:17px;' +
             '">' +
+
             '📊 Yearly Dashboard' +
+
             '</button>';
+
 
         card.querySelector(
             "button"
-        ).onclick = yearlyOpen;
+        ).onclick =
+            yearlyOpen;
 
-        home.appendChild(card);
+
+        home.appendChild(
+            card
+        );
     }
+
 
     document.addEventListener(
         "DOMContentLoaded",
