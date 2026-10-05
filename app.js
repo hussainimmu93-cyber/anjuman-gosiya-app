@@ -13,7 +13,7 @@ var receipts = [];
 var editingMemberId = null;
 var editingReceiptId = null;
 
-var db = null;
+db = null;;
 var firestoreReady = false;
 var firestoreUnsubscribe = null;
 
