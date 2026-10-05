@@ -30,6 +30,71 @@ body {
     color: #222;
 }
 
+/* =========================
+   LOGIN SCREEN
+========================= */
+
+#loginScreen {
+    display: none;
+    min-height: 100vh;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    background: #f5f5f5;
+}
+
+.loginBox {
+    width: 100%;
+    max-width: 420px;
+    background: white;
+    border-radius: 15px;
+    padding: 25px;
+    box-shadow: 0 3px 15px rgba(0,0,0,.12);
+}
+
+.loginBox h2 {
+    text-align: center;
+    color: #075e54;
+    margin-top: 0;
+}
+
+.loginBox p {
+    text-align: center;
+    font-size: 13px;
+    color: #666;
+}
+
+.loginBox input {
+    width: 100%;
+    padding: 12px;
+    margin: 7px 0 12px;
+    border: 1px solid #ccc;
+    border-radius: 7px;
+    font-size: 15px;
+}
+
+.loginBox button {
+    width: 100%;
+}
+
+#loginError {
+    display: none;
+    background: #ffebee;
+    color: #c62828;
+    padding: 10px;
+    border-radius: 7px;
+    margin-top: 10px;
+    font-size: 13px;
+}
+
+/* =========================
+   MAIN APP
+========================= */
+
+#appContainer {
+    display: none;
+}
+
 header {
     background: #075e54;
     color: white;
@@ -277,6 +342,57 @@ label {
 </head>
 
 <body>
+
+
+<!-- =========================
+     LOGIN SCREEN
+========================= -->
+
+<div id="loginScreen">
+
+    <div class="loginBox">
+
+        <h2>🔐 Anjuman Gosiya</h2>
+
+        <p>
+            Please login with your authorized account
+        </p>
+
+        <label>Email Address</label>
+
+        <input
+            type="email"
+            id="loginEmail"
+            placeholder="Enter email address"
+            autocomplete="username"
+        >
+
+        <label>Password</label>
+
+        <input
+            type="password"
+            id="loginPassword"
+            placeholder="Enter password"
+            autocomplete="current-password"
+        >
+
+        <button id="loginButton">
+            🔐 Login
+        </button>
+
+        <div id="loginError"></div>
+
+    </div>
+
+</div>
+
+
+<!-- =========================
+     MAIN APP CONTAINER
+========================= -->
+
+<div id="appContainer">
+
 
 <header>
 
@@ -614,6 +730,13 @@ label {
             🗑️ Clear All Data
         </button>
 
+        <button
+            id="logoutButton"
+            class="secondary"
+        >
+            🚪 Logout
+        </button>
+
     </div>
 
 </section>
@@ -730,6 +853,10 @@ label {
 </div>
 
 
+</div>
+<!-- END APP CONTAINER -->
+
+
 <!-- =========================
      EXISTING LIBRARIES
 ========================= -->
@@ -748,6 +875,8 @@ label {
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 
 
 <!-- =========================
@@ -784,9 +913,190 @@ if (!firebase.apps.length) {
 
 const db = firebase.firestore();
 
+const auth = firebase.auth();
+
 
 console.log("Firebase Firestore Connected");
 
+console.log("Firebase Authentication Ready");
+
+
+/* =========================
+   AUTH LOGIN UI
+========================= */
+
+auth.onAuthStateChanged(function(user) {
+
+    var loginScreen = document.getElementById("loginScreen");
+    var appContainer = document.getElementById("appContainer");
+
+    if (user) {
+
+        loginScreen.style.display = "none";
+        appContainer.style.display = "block";
+
+        console.log("✅ Logged in:", user.email);
+
+    } else {
+
+        loginScreen.style.display = "flex";
+        appContainer.style.display = "none";
+
+        console.log("🔐 User is not logged in.");
+
+    }
+
+});
+
+
+document.addEventListener("DOMContentLoaded", function() {
+
+    var loginButton = document.getElementById("loginButton");
+
+    var loginEmail = document.getElementById("loginEmail");
+
+    var loginPassword = document.getElementById("loginPassword");
+
+    var loginError = document.getElementById("loginError");
+
+    if (loginButton) {
+
+        loginButton.addEventListener("click", function() {
+
+            var email = loginEmail.value.trim();
+
+            var password = loginPassword.value;
+
+            loginError.style.display = "none";
+            loginError.textContent = "";
+
+            if (!email || !password) {
+
+                loginError.textContent =
+                    "Please enter email and password.";
+
+                loginError.style.display = "block";
+
+                return;
+            }
+
+
+            loginButton.disabled = true;
+
+            loginButton.textContent = "🔄 Logging in...";
+
+
+            auth.signInWithEmailAndPassword(
+                email,
+                password
+            )
+
+            .then(function() {
+
+                console.log("✅ Login successful.");
+
+                loginPassword.value = "";
+
+            })
+
+            .catch(function(error) {
+
+                console.error("Login error:", error);
+
+                var message =
+                    "Login failed. Please check email and password.";
+
+                if (error.code === "auth/invalid-credential") {
+                    message =
+                        "Invalid email or password.";
+                }
+
+                if (error.code === "auth/user-not-found") {
+                    message =
+                        "User account not found.";
+                }
+
+                if (error.code === "auth/wrong-password") {
+                    message =
+                        "Wrong password.";
+                }
+
+                loginError.textContent = message;
+
+                loginError.style.display = "block";
+
+            })
+
+            .finally(function() {
+
+                loginButton.disabled = false;
+
+                loginButton.textContent = "🔐 Login";
+
+            });
+
+        });
+
+    }
+
+
+    if (loginPassword) {
+
+        loginPassword.addEventListener("keydown", function(event) {
+
+            if (event.key === "Enter") {
+
+                loginButton.click();
+
+            }
+
+        });
+
+    }
+
+});
+
+
+/* =========================
+   LOGOUT
+========================= */
+
+document.addEventListener("DOMContentLoaded", function() {
+
+    var logoutButton = document.getElementById("logoutButton");
+
+    if (logoutButton) {
+
+        logoutButton.addEventListener("click", function() {
+
+            if (!confirm("Are you sure you want to logout?")) {
+
+                return;
+
+            }
+
+            auth.signOut()
+
+                .then(function() {
+
+                    console.log("Logged out.");
+
+                })
+
+                .catch(function(error) {
+
+                    console.error(
+                        "Logout error:",
+                        error
+                    );
+
+                });
+
+        });
+
+    }
+
+});
 
 </script>
 

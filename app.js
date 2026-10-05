@@ -4267,14 +4267,35 @@ document.addEventListener(
            ===================== */
 
         setTimeout(
-            function() {
+    function() {
 
-                initFirestore();
+        if (typeof auth !== "undefined") {
 
-            },
-            300
-        );
+            auth.onAuthStateChanged(function(user) {
 
+                if (user) {
+
+                    console.log("✅ Authenticated. Starting Firestore...");
+
+                    initFirestore();
+
+                } else {
+
+                    console.log("🔐 Waiting for login...");
+
+                }
+
+            });
+
+        } else {
+
+            console.error("Firebase Authentication is not available.");
+
+        }
+
+    },
+    300
+);
 
         /* =====================
            HOME
