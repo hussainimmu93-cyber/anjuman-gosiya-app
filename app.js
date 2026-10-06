@@ -2473,37 +2473,326 @@ async function createMonthWisePDF() {
             "Member",
             "Mobile",
             "Month",
-            "Status",
-            "Receipt No.",
-            "Amount",
-            "Mode"
-        ],
-        rows,
-        38
+async function createMonthWisePDF() {
+
+    var month =
+        $("monthlyMonth").value;
+
+    if (!month) {
+
+        alert(
+            "Please select month."
+        );
+
+        return;
+    }
+
+    var rowsHTML = "";
+
+    var totalPaid = 0;
+    var paidCount = 0;
+    var unpaidCount = 0;
+
+    members.forEach(function(member) {
+
+        var receipt =
+            getReceiptForMemberMonth(
+                member.id,
+                month
+            );
+
+        if (receipt) {
+
+            paidCount++;
+
+            totalPaid +=
+                Number(
+                    receipt.amount || 0
+                );
+
+            rowsHTML +=
+                "<tr>" +
+
+                "<td>" +
+                String(member.name || "") +
+                "</td>" +
+
+                "<td>" +
+                String(member.mobile || "") +
+                "</td>" +
+
+                "<td>" +
+                String(formatMonth(month)) +
+                "</td>" +
+
+                "<td>Paid</td>" +
+
+                "<td>" +
+                String(receipt.receiptNo || "") +
+                "</td>" +
+
+                "<td>₹" +
+                Number(
+                    receipt.amount || 0
+                ).toFixed(2) +
+                "</td>" +
+
+                "<td>" +
+                String(receipt.mode || "") +
+                "</td>" +
+
+                "</tr>";
+
+        } else {
+
+            unpaidCount++;
+
+            rowsHTML +=
+                "<tr>" +
+
+                "<td>" +
+                String(member.name || "") +
+                "</td>" +
+
+                "<td>" +
+                String(member.mobile || "") +
+                "</td>" +
+
+                "<td>" +
+                String(formatMonth(month)) +
+                "</td>" +
+
+                "<td>Unpaid</td>" +
+
+                "<td></td>" +
+
+                "<td>₹0.00</td>" +
+
+                "<td></td>" +
+
+                "</tr>";
+        }
+    });
+
+
+    /* =========================
+       CREATE HTML REPORT
+    ========================= */
+
+    var report =
+        document.createElement("div");
+
+    report.style.position =
+        "fixed";
+
+    report.style.left =
+        "-10000px";
+
+    report.style.top =
+        "0";
+
+    report.style.width =
+        "760px";
+
+    report.style.background =
+        "#ffffff";
+
+    report.style.color =
+        "#000000";
+
+    report.style.padding =
+        "25px";
+
+    report.style.fontFamily =
+        "Arial, Noto Sans Devanagari, sans-serif";
+
+    report.style.fontSize =
+        "13px";
+
+
+    report.innerHTML =
+
+        '<div style="text-align:center;">' +
+
+        '<div style="font-size:24px;font-weight:bold;margin-bottom:6px;">' +
+        'अंजुमन गौसिया तालीमुल कुराण' +
+        '</div>' +
+
+        '<div style="font-size:14px;margin-bottom:4px;">' +
+        'PTR No.: 10418-95 (पुणे)' +
+        '</div>' +
+
+        '<div style="font-size:13px;margin-bottom:8px;">' +
+        '42, कोरेगांव पार्क, गाडगे महाराज वस्ती, पुणे – 1' +
+        '</div>' +
+
+        '<div style="font-size:18px;font-weight:bold;margin-bottom:15px;">' +
+        'Monthly Paid / Unpaid Report - ' +
+        String(formatMonth(month)) +
+        '</div>' +
+
+        '</div>' +
+
+
+        '<table style="width:100%;border-collapse:collapse;table-layout:fixed;">' +
+
+        '<thead>' +
+
+        '<tr>' +
+
+        '<th style="border:1px solid #000;padding:8px;background:#075e54;color:#fff;width:22%;">Member</th>' +
+
+        '<th style="border:1px solid #000;padding:8px;background:#075e54;color:#fff;width:15%;">Mobile</th>' +
+
+        '<th style="border:1px solid #000;padding:8px;background:#075e54;color:#fff;width:13%;">Month</th>' +
+
+        '<th style="border:1px solid #000;padding:8px;background:#075e54;color:#fff;width:11%;">Status</th>' +
+
+        '<th style="border:1px solid #000;padding:8px;background:#075e54;color:#fff;width:13%;">Receipt No.</th>' +
+
+        '<th style="border:1px solid #000;padding:8px;background:#075e54;color:#fff;width:11%;">Amount</th>' +
+
+        '<th style="border:1px solid #000;padding:8px;background:#075e54;color:#fff;width:15%;">Payment Mode</th>' +
+
+        '</tr>' +
+
+        '</thead>' +
+
+        '<tbody>' +
+
+        rowsHTML +
+
+        '</tbody>' +
+
+        '</table>' +
+
+
+        '<div style="margin-top:18px;font-size:15px;font-weight:bold;">' +
+
+        '<span style="margin-right:35px;">' +
+        'Paid Members: ' +
+        paidCount +
+        '</span>' +
+
+        '<span style="margin-right:35px;">' +
+        'Unpaid Members: ' +
+        unpaidCount +
+        '</span>' +
+
+        '<span>' +
+        'Total Paid: ₹' +
+        Number(totalPaid).toFixed(2) +
+        '</span>' +
+
+        '</div>';
+
+
+    document.body.appendChild(report);
+
+
+    /* =========================
+       HTML → CANVAS
+    ========================= */
+
+    var canvas =
+        await html2canvas(
+            report,
+            {
+                scale: 2,
+                useCORS: true,
+                backgroundColor: "#ffffff",
+                logging: false
+            }
+        );
+
+
+    document.body.removeChild(
+        report
     );
 
-    pdf.setFontSize(10);
 
-    pdf.text(
-        "Paid Members: " +
-        paidCount,
-        10,
-        285
+    /* =========================
+       CANVAS → PDF
+    ========================= */
+
+    var jsPDF =
+        window.jspdf.jsPDF;
+
+    var pdf =
+        new jsPDF(
+            "p",
+            "mm",
+            "a4"
+        );
+
+
+    var pageWidth =
+        pdf.internal.pageSize.getWidth();
+
+    var pageHeight =
+        pdf.internal.pageSize.getHeight();
+
+    var margin = 8;
+
+    var pdfWidth =
+        pageWidth -
+        (margin * 2);
+
+    var pdfHeight =
+        canvas.height *
+        pdfWidth /
+        canvas.width;
+
+
+    var imgData =
+        canvas.toDataURL(
+            "image/png"
+        );
+
+
+    var position = 8;
+
+    var remainingHeight =
+        pdfHeight;
+
+
+    pdf.addImage(
+        imgData,
+        "PNG",
+        margin,
+        position,
+        pdfWidth,
+        pdfHeight
     );
 
-    pdf.text(
-        "Unpaid Members: " +
-        unpaidCount,
-        70,
-        285
-    );
 
-    pdf.text(
-        "Total Paid: " +
-        money(totalPaid),
-        140,
-        285
-    );
+    remainingHeight -=
+        pageHeight - 16;
+
+
+    while (
+        remainingHeight > 0
+    ) {
+
+        position =
+            position -
+            (pageHeight - 16);
+
+        pdf.addPage();
+
+        pdf.addImage(
+            imgData,
+            "PNG",
+            margin,
+            position,
+            pdfWidth,
+            pdfHeight
+        );
+
+        remainingHeight -=
+            pageHeight - 16;
+    }
+
 
     pdf.save(
         "Monthly_Report_" +
@@ -2511,7 +2800,6 @@ async function createMonthWisePDF() {
         ".pdf"
     );
 }
-
 
 /* =========================================================
    MEMBER-WISE PDF
